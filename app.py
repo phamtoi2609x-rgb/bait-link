@@ -29,6 +29,7 @@ def geo(ip):
 
 def log(rec):
     rec["ts"] = datetime.datetime.utcnow().isoformat() + "Z"
+    print(json.dumps(rec, ensure_ascii=False), flush=True)
     with open(LOG, "a", encoding="utf-8") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
